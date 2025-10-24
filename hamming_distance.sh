@@ -1,16 +1,11 @@
-#!/bin/bash
-#SBATCH -c 16
-#SBATCH --mem=100G
-set -euo pipefail
-
-# 1. 提取 VMR 内 CpGs
+#stpe1. Extract CpGs from the VMRs
 mkdir -p tmp
 
 echo "[Step 1] Extract CpGs in VMRs ..."
 for f in *.bed; do
     sample=$(basename $f .bed)
     if [[ ! -s tmp/${sample}_VMR.bed ]]; then
-        bedtools intersect -a "$f" -b VMRs_5%_chr1-22_3col_fixed.txt -wa > tmp/${sample}_VMR.bed
+        bedtools intersect -a "$f" -b VMRs.txt -wa > tmp/${sample}_VMR.bed
     fi
 done
 
@@ -26,21 +21,21 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 
 # ----------------------------
-# 参数设置
+# parameter setting
 # ----------------------------
 tmp_dir = "tmp"
 out_long = "hamming_long_v4.tsv"
 out_matrix = "hamming_distance_matrix_v4.tsv"
 nproc = 16
-batch_size = 5000  # 减少批量大小
+batch_size = 5000  # Control the batch size
 
-# 使用内存映射文件
+# Use memory-mapped files
 memmap_file = "X_memmap.dat"
 
 # ----------------------------
-# 1. 构建全局 CpG 列索引
+# 1.Build a global CpGs column index
 # ----------------------------
-print("Step 1: Collect all CpG positions...")
+print("Step 1: Collect all CpGs positions...")
 all_positions = set()
 file_list = sorted(glob.glob(os.path.join(tmp_dir, "*_VMR.bed")))
 sample_names = [os.path.basename(f).replace("_VMR.bed","") for f in file_list]
@@ -61,12 +56,12 @@ n_cells = len(sample_names)
 print(f"Total CpG positions: {n_cpgs}")
 
 # ----------------------------
-# 2. 构建 memory-mapped 矩阵
+# 2. Build a memory-mapped matrix
 # ----------------------------
 print("Step 2: Build memory-mapped matrix...")
-# 使用 uint8 类型节省空间 (0: 未甲基化, 1: 甲基化, 255: 缺失值)
+# Using the uint8 type saves space (0: unmethylated, 1: methylated, 255: missing value)
 X = np.memmap(memmap_file, dtype=np.uint8, mode='w+', shape=(n_cells, n_cpgs))
-X[:] = 255  # 初始化为缺失值
+X[:] = 255  # Initialize as missing values
 
 for i, f in enumerate(tqdm(file_list)):
     with open(f) as fh:
@@ -76,35 +71,35 @@ for i, f in enumerate(tqdm(file_list)):
                 continue
             chrom, pos, ratio = parts[0], int(parts[1]), float(parts[3])
             idx = pos2idx[(chrom,pos)]
-            # 将甲基化比率转换为二进制值
+            # Convert the methylation ratio to a binary value and initialize it as a missing value
             binary_val = 1 if ratio > 0.5 else 0
             X[i, idx] = binary_val
 
-# 确保数据写入磁盘
+# Ensure that the data is written to the disk.
 X.flush()
-del X  # 释放内存映射
+del X  # Release memory mapping
 
 # ----------------------------
-# 3. 定义 Hamming distance 函数
+# 3. Define the Hamming distance function
 # ----------------------------
 def hamming_row(idx_pair):
-    # 重新打开内存映射文件为只读模式
+    # Reopen the memory-mapped file in read-only mode
     X_readonly = np.memmap(memmap_file, dtype=np.uint8, mode='r', shape=(n_cells, n_cpgs))
     i, j = idx_pair
     v1 = X_readonly[i]
     v2 = X_readonly[j]
     
-    # 找出两个样本都有数据的位置
+    # Identify the positions where data is available for both samples
     valid_mask = (v1 != 255) & (v2 != 255)
     if np.sum(valid_mask) == 0:
         return sample_names[i], sample_names[j], np.nan
     
-    # 计算不同值的比例
+    # Calculate the proportion of different values
     dist = np.mean(v1[valid_mask] != v2[valid_mask])
     return sample_names[i], sample_names[j], dist
 
 # ----------------------------
-# 4. 分批并行计算 Hamming distance
+# 4. Batch parallel computation of Hamming distance
 # ----------------------------
 print("Step 3: Compute Hamming distance...")
 pairs = list(combinations(range(n_cells),2))
@@ -113,7 +108,7 @@ total_batches = (len(pairs) + batch_size - 1) // batch_size
 with open(out_long, "w") as out:
     out.write("sample1\tsample2\thamming\n")
 
-    # 分批处理
+    # batch handling
     for batch_num in range(0, len(pairs), batch_size):
         batch_pairs = pairs[batch_num:batch_num+batch_size]
         current_batch = batch_num // batch_size + 1
@@ -127,7 +122,7 @@ with open(out_long, "w") as out:
                 out.flush()
 
 # ----------------------------
-# 5. 转换为对称矩阵
+# 5. Convert to a symmetric matrix
 # ----------------------------
 print("Step 4: Convert to symmetric matrix...")
 df = pd.read_csv(out_long, sep="\t")
@@ -138,7 +133,7 @@ for s in matrix.index:
 matrix.to_csv(out_matrix, sep="\t")
 print("Done! Hamming distance matrix saved to:", out_matrix)
 
-# 清理临时文件
+# Delete temporary files
 if os.path.exists(memmap_file):
     os.remove(memmap_file)
 PYCODE
