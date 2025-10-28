@@ -1,2 +1,2 @@
 # HamDis
-Hamming distance based Analysis of Methylation Dissimilarity
+Hamming distance-based analysis of methylation dissimilarity
