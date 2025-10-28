@@ -1,1 +1,91 @@
+import sys
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import PyComplexHeatmap as pch
+from matplotlib.colors import LinearSegmentedColormap
 
+sys.setrecursionlimit(20000)  # ✅ Allow for deeper recursion
+
+# ========= input files =========
+matrix_file = "g1_hamming_distance_10%_VMRS.tsv"
+#matrix_file = "g2_hamming_distance_10%_VMRS.tsv"
+meta_file  = "/home/jiang_yuanpei/project/humbrain/self_bin/humainbrain_meta.csv"
+out_file    = "g1_hamming_heatmap.pdf"
+#out_file    = "g2_hamming_heatmap.pdf"
+
+
+# ========= Read and write to the matrix =========
+df = pd.read_csv(matrix_file, sep="\t", index_col=0)
+df = df.loc[~df.index.duplicated(), ~df.columns.duplicated()]
+df = df.astype(float)
+
+# ========= Read and write to the meta file =========
+meta = pd.read_csv(meta_file)
+
+# ========= Remove duplicates and set up an index =========
+meta = meta.drop_duplicates(subset=["cell_id"]).set_index("cell_id")
+
+# ========= Matching cells =========
+common_cells = df.index.intersection(meta.index)
+df = df.loc[common_cells, common_cells]
+meta = meta.loc[common_cells]
+
+print(f"The number of cells in the matrix: {df.shape[0]}")
+print(f"The number of cells in the meta file: {meta.shape[0]}")
+print(f"The total number of cells shared by the matrix and the meta file: {len(common_cells)}")
+
+cmap_dict = {
+    "DG": "#1f77b4",
+    "L2/3-IT": "#ff7f0e",
+    "L4-IT": "#279e68",
+    "L5-IT": "#d62728",
+    "L5/6-NP": "#aa40fc",
+    "L6-CT": "#8c564b",
+    "L6-IT": "#e377c2",
+    "Lamp5": "#b5bd61",
+    "ODC": "#17becf",
+    "Pvalb": "#aec7e8",
+    "Sst": "#ffbb78",
+    "SubCtx-Cplx": "#98df8a",
+    "Vip": "#ff9896",
+}
+
+
+# =========Build annotations (with labels)=========
+col_ha = pch.HeatmapAnnotation(
+    MajorType=pch.anno_simple(
+        meta["MajorType"],
+        colors=cmap_dict,
+        add_text=False
+    ),
+    axis=1, height=6, verbose=0
+)
+
+row_ha = pch.HeatmapAnnotation(
+    MajorType=pch.anno_simple(
+        meta["MajorType"],
+        colors=cmap_dict,
+        add_text=False
+    ),
+    axis=0, width=6, verbose=0
+)
+
+# ========= Heat map color scheme =========
+hm_cmap = LinearSegmentedColormap.from_list("hamming_cmap", ["#e87dcd", "white", "#A8CB25"])
+
+plt.figure(figsize=(12, 10))
+cm = pch.ClusterMapPlotter(
+    data=df,
+    top_annotation=col_ha,
+    left_annotation=row_ha,
+    cmap=hm_cmap,label='HamDis',
+    vmin=0.1, vmax=0.4,
+    row_cluster=True, col_cluster=True,
+    tree_kws=dict(linewidths=1),
+    legend_gap=8,
+    verbose=0
+)
+
+plt.savefig(out_file.replace(".pdf", ".png"), dpi=300, bbox_inches="tight")
+plt.show()
