@@ -1,7 +1,5 @@
 # Tutorial: Run `hammeth` on the tutorial scWGBS dataset
 
-This tutorial is organized in a style similar to the [MethSCAn tutorial](https://anders-biostat.github.io/MethSCAn/tutorial.html), but it is adapted to the current `hammeth` workflow and the tutorial files used in this project.
-
 The `hammeth` workflow has three core steps:
 
 1. `prepare`: convert indexed BAM files into chromosome-wise PAT files
