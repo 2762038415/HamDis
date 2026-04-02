@@ -1,0 +1,3 @@
+[console_scripts]
+hammeth = hammeth.cli:main
+
