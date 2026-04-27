@@ -450,15 +450,3 @@ hammeth matrix `
 ## Suggested downstream heatmap
 
 Once `tutorial_hamming_distance_matrix.tsv` is generated, it can be combined with `tutorial_meta.csv` to draw a heatmap. In this project, a modified version of `group1_heatmap.ipynb` can be used for this purpose, and the legend should be restricted to the cell types that are actually present in the tutorial data.
-
-## Notes for GitHub users
-
-If you plan to publish this tutorial on GitHub, it is recommended to include:
-
-1. a short `Requirements` section listing `samtools`, `wgbstools`, `bedtools`, and Python dependencies
-2. a `Data` section showing the expected folder layout
-3. the exact chromosome list used in the examples
-4. the exact batch settings used in the tutorial
-5. a small `Expected outputs` tree similar to the one shown above
-
-This will make the tutorial much easier to follow and reproduce.
