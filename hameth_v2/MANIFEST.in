@@ -1,0 +1,3 @@
+include README.md
+include METHOD_CN.md
+recursive-include examples *.sh
